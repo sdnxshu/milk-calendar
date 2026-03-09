@@ -7,7 +7,8 @@ const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "Ju
 
 // -1 = skipped
 type MilkData = Record<string, number>;
-interface ModalState { day: number; key: string }
+type EditLog = Record<string, string>; // key → ISO timestamp of last edit
+interface ModalState { day: number; key: string; isEditing: boolean }
 interface DateState {
     key: string; isToday: boolean; isPast: boolean;
     isFuture: boolean; hasMilk: boolean; isSkipped: boolean;
@@ -28,6 +29,7 @@ export default function MilkTrackerPage() {
     const [viewYear, setViewYear] = useState(realYear);
     const [viewMonth, setViewMonth] = useState(realMonth);
     const [milkData, setMilkData] = useState<MilkData>({});
+    const [editLog, setEditLog] = useState<EditLog>({});
     const [modal, setModal] = useState<ModalState | null>(null);
     const [inputVal, setInputVal] = useState("");
     const [showSummary, setShowSummary] = useState(false);
@@ -44,11 +46,13 @@ export default function MilkTrackerPage() {
     useEffect(() => {
         setMounted(true);
         try { const s = localStorage.getItem("milk-data"); if (s) setMilkData(JSON.parse(s)); } catch { }
+        try { const e = localStorage.getItem("milk-edits"); if (e) setEditLog(JSON.parse(e)); } catch { }
     }, []);
     useEffect(() => {
         if (!mounted) return;
         try { localStorage.setItem("milk-data", JSON.stringify(milkData)); } catch { }
-    }, [milkData, mounted]);
+        try { localStorage.setItem("milk-edits", JSON.stringify(editLog)); } catch { }
+    }, [milkData, editLog, mounted]);
 
     const prefix = mkPfx(viewYear, viewMonth);
     const totalLitres = Object.entries(milkData).filter(([k, v]) => k.startsWith(prefix) && v > 0).reduce((s, [, v]) => s + v, 0);
@@ -78,15 +82,22 @@ export default function MilkTrackerPage() {
 
     const openModal = (day: number) => {
         const key = fmt(viewYear, viewMonth, day);
-        if (key !== todayKey) return;
+        const date = new Date(viewYear, viewMonth, day);
+        const ref = new Date(realYear, realMonth, today.getDate());
+        if (date > ref) return; // no future days
+        const isEditing = key !== todayKey; // past days are "editing"
         setInputVal(milkData[key] != null && milkData[key] > 0 ? String(milkData[key]) : "");
-        setModal({ day, key });
+        setModal({ day, key, isEditing });
     };
 
     const commitEntry = (val: number) => {
         if (!modal) return;
         const updated = { ...milkData, [modal.key]: val };
         setMilkData(updated);
+        // Record edit time for past-day edits
+        if (modal.isEditing) {
+            setEditLog(prev => ({ ...prev, [modal.key]: new Date().toISOString() }));
+        }
         setModal(null);
         const allFilled = Array.from({ length: daysInMonth }, (_, i) => i + 1)
             .every(d => updated[fmt(viewYear, viewMonth, d)] !== undefined);
@@ -252,7 +263,7 @@ export default function MilkTrackerPage() {
                                     className={isToday ? "tc" : "dc"}
                                     style={{
                                         borderRadius: 10,
-                                        cursor: isToday ? "pointer" : "default",
+                                        cursor: isFuture ? "default" : "pointer",
                                         display: "flex",
                                         flexDirection: "column",
                                         alignItems: "center",
@@ -290,6 +301,10 @@ export default function MilkTrackerPage() {
                                     )}
                                     {isToday && !hasMilk && !isSkipped && (
                                         <span style={{ width: 4, height: 4, borderRadius: "50%", background: "rgba(255,255,255,0.5)", display: "block" }} />
+                                    )}
+                                    {/* edited indicator */}
+                                    {editLog[key] && (
+                                        <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#b0b0b0", display: "block", position: "absolute", top: 5, right: 5 }} />
                                     )}
                                 </div>
                             );
@@ -341,9 +356,14 @@ export default function MilkTrackerPage() {
                         <div style={{ fontSize: 9, color: T.faint, letterSpacing: 3, textTransform: "uppercase", marginBottom: 6 }}>
                             {MONTH_NAMES[viewMonth]} {modal.day}
                         </div>
-                        <div style={{ fontFamily: "'Playfair Display', serif", fontStyle: "italic", fontSize: 15, color: T.mid, marginBottom: 28 }}>
-                            How much milk today?
+                        <div style={{ fontFamily: "'Playfair Display', serif", fontStyle: "italic", fontSize: 15, color: T.mid, marginBottom: modal.isEditing && editLog[modal.key] ? 6 : 28 }}>
+                            {modal.isEditing ? "Edit this day" : "How much milk today?"}
                         </div>
+                        {modal.isEditing && editLog[modal.key] && (
+                            <div style={{ fontSize: 9, color: T.faint, letterSpacing: 1, marginBottom: 28 }}>
+                                last edited {new Date(editLog[modal.key]).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                            </div>
+                        )}
 
                         <div style={{ position: "relative", marginBottom: 8 }}>
                             <input
@@ -375,7 +395,7 @@ export default function MilkTrackerPage() {
                         </div>
 
                         <div style={{ fontSize: 9, color: T.faint, letterSpacing: 1, marginBottom: 24 }}>
-                            ₹{(parseFloat(inputVal || "0") * PRICE_PER_LITRE).toFixed(0)} today
+                            ₹{(parseFloat(inputVal || "0") * PRICE_PER_LITRE).toFixed(0)} {modal.isEditing ? "that day" : "today"}
                         </div>
 
                         <button
@@ -406,7 +426,7 @@ export default function MilkTrackerPage() {
                                 transition: "background 0.15s",
                             }}
                         >
-                            Didn&apos;t buy today
+                            Didn&apos;t buy {modal.isEditing ? "that day" : "today"}
                         </button>
                     </div>
                 </div>

@@ -165,6 +165,7 @@ export default function MilkTrackerPage() {
         input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
         input[type=number] { -moz-appearance: textfield; }
         .dc:hover { background: #f2f1ee !important; }
+        .mc:hover { background: #d6ecd6 !important; }
         .tc { background: #1a1a1a !important; }
         .tc:hover { background: #2e2e2e !important; }
         .btn-p:hover { background: #2e2e2e !important; }
@@ -260,7 +261,7 @@ export default function MilkTrackerPage() {
                                 <div
                                     key={day}
                                     onClick={() => openModal(day)}
-                                    className={isToday ? "tc" : "dc"}
+                                    className={isToday ? "tc" : hasMilk ? "mc" : "dc"}
                                     style={{
                                         borderRadius: 10,
                                         cursor: isFuture ? "default" : "pointer",
@@ -272,6 +273,18 @@ export default function MilkTrackerPage() {
                                         opacity: isFuture ? 0.25 : 1,
                                         transition: "background 0.12s",
                                         position: "relative",
+                                        background: isToday
+                                            ? "#1a1a1a"
+                                            : hasMilk
+                                                ? "#e6f3e6"
+                                                : isSkipped
+                                                    ? "#f4f3f1"
+                                                    : "transparent",
+                                        border: hasMilk && !isToday
+                                            ? "1.5px solid #b8ddb8"
+                                            : isSkipped
+                                                ? "1.5px dashed #d8d6d2"
+                                                : "1.5px solid transparent",
                                     }}
                                 >
                                     {/* Date number */}
@@ -289,7 +302,7 @@ export default function MilkTrackerPage() {
                                         <span style={{
                                             fontSize: 8,
                                             fontWeight: 500,
-                                            color: isToday ? "rgba(255,255,255,0.7)" : T.mid,
+                                            color: isToday ? "rgba(255,255,255,0.7)" : "#4a8a4a",
                                             lineHeight: 1,
                                             letterSpacing: -0.5,
                                         }}>
@@ -341,7 +354,7 @@ export default function MilkTrackerPage() {
                 {/* ── Legend ── */}
                 <div style={{ flexShrink: 0, display: "flex", gap: 16, marginTop: 12, fontSize: 9, color: T.faint, letterSpacing: 1, textTransform: "uppercase" }}>
                     <span>■ Today</span>
-                    <span>· Logged</span>
+                    <span style={{ color: "#4a8a4a" }}>■ Logged</span>
                     <span>— Skipped</span>
                 </div>
             </div>
